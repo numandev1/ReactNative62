@@ -4,15 +4,35 @@ import {WebView} from 'react-native-webview';
 import CookieManager from '@react-native-community/cookies';
 
 import AsyncStorage from '@react-native-community/async-storage';
+
+
 export default class App extends Component {
   constructor(props) {
     super(props);
     this.currentUrl = '';
     this.myWebView = React.createRef();
+    this.state={
+      isReady:false,
+      cookiesString:""
+    }
+  }
 
+  jsonCookiesToCookieString=(json)=> {
+    let cookiesString="";
+    for(let [key,value] of Object.entries(json))
+        {
+          cookiesString+=`${key}=${value.value}; `;
+        }
+    return cookiesString;
+  }
+
+  componentWillMount(){
     this.provideMeSavedCookies().then((savedCookies) => {
-      console.log('==== savedCookies =======');
-      console.log(savedCookies);
+      console.log('==== savedCookiesn =======');
+      const cookiesString=this.jsonCookiesToCookieString(savedCookies);
+      this.setState({cookiesString,isReady:true});
+    }).catch(e=>{
+      this.setState({isReady:true});
     });
   }
 
@@ -30,7 +50,7 @@ export default class App extends Component {
     // Get & Save cookies here
     if (this.currentUrl === successUrl) {
       // Get cookies as a request header string
-      CookieManager.get(successUrl).then((res) => {
+      CookieManager.getAll(true).then((res) => {
         console.log('CookieManager.get =>', res); // => 'user_session=abcdefg; path=/;'
         AsyncStorage.setItem('savedCookies', JSON.stringify(res));
         AsyncStorage.setItem('isLoggedInStatus', '1');
@@ -43,15 +63,21 @@ export default class App extends Component {
   };
 
   render() {
+    const {cookiesString,isReady}=this.state;
+    if(!isReady)
+    {
+      return null;
+    }
+    console.log(cookiesString,"cookiesStringcookiesString")
     return (
       <SafeAreaView style={styles.container}>
         <WebView
           ref={this.myWebView}
           source={{
             uri: "https://hisably.com/app/",
-            // headers: {
-            //   Cookie: 'cookie1=asdf; cookie2=dfasdfdas',
-            // },
+            headers: {
+              Cookie: cookiesString,
+            },
           }}
           scalesPageToFit
           onMessage={this.handleMessage}
@@ -73,11 +99,11 @@ export default class App extends Component {
     console.log(message);
   };
 
-  async provideMeSavedCookies() {
+  provideMeSavedCookies=async ()=> {
     try {
       let value = await AsyncStorage.getItem('savedCookies');
       if (value !== null) {
-        return Promise.resolve(JSON.stringify(value));
+        return Promise.resolve(JSON.parse(value));
       }
     } catch (error) {
       console.log('=====  checkIfWeHavePocStoredInSqLite =====');
