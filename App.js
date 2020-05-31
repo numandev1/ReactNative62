@@ -1,39 +1,43 @@
 import React, {Component} from 'react';
-import {StyleSheet,SafeAreaView,} from 'react-native';
+import {StyleSheet, SafeAreaView} from 'react-native';
 import {WebView} from 'react-native-webview';
 import CookieManager from '@react-native-community/cookies';
 
 import AsyncStorage from '@react-native-community/async-storage';
-
 
 export default class App extends Component {
   constructor(props) {
     super(props);
     this.currentUrl = '';
     this.myWebView = React.createRef();
-    this.state={
-      isReady:false,
-      cookiesString:""
+    this.state = {
+      isReady: false,
+      cookiesString: '',
+    };
+  }
+
+  jsonCookiesToCookieString = (json) => {
+    let cookiesString = '';
+    for (let [key, value] of Object.entries(json)) {
+      cookiesString += `${key}=${value.value}; `;
     }
-  }
-
-  jsonCookiesToCookieString=(json)=> {
-    let cookiesString="";
-    for(let [key,value] of Object.entries(json))
-        {
-          cookiesString+=`${key}=${value.value}; `;
-        }
     return cookiesString;
-  }
+  };
 
-  componentWillMount(){
-    this.provideMeSavedCookies().then((savedCookies) => {
-      console.log('==== savedCookiesn =======');
-      const cookiesString=this.jsonCookiesToCookieString(savedCookies);
-      this.setState({cookiesString,isReady:true});
-    }).catch(e=>{
-      this.setState({isReady:true});
-    });
+  componentWillMount() {
+    this.provideMeSavedCookies()
+      .then(async (savedCookies) => {
+        console.log('==== savedCookiesn =======');
+        let cookiesString = this.jsonCookiesToCookieString(savedCookies);
+        const PHPSESSID = await AsyncStorage.getItem('PHPSESSID');
+        if (PHPSESSID) {
+          cookiesString += `PHPSESSID=${PHPSESSID};`;
+        }
+        this.setState({cookiesString, isReady: true});
+      })
+      .catch((e) => {
+        this.setState({isReady: true});
+      });
   }
 
   onLoadEnd = (syntheticEvent) => {
@@ -54,6 +58,10 @@ export default class App extends Component {
         console.log('CookieManager.get =>', res); // => 'user_session=abcdefg; path=/;'
         AsyncStorage.setItem('savedCookies', JSON.stringify(res));
         AsyncStorage.setItem('isLoggedInStatus', '1');
+
+        if (res.PHPSESSID) {
+          AsyncStorage.setItem('PHPSESSID', res.PHPSESSID.value);
+        }
       });
     }
   };
@@ -63,18 +71,16 @@ export default class App extends Component {
   };
 
   render() {
-    const {cookiesString,isReady}=this.state;
-    if(!isReady)
-    {
+    const {cookiesString, isReady} = this.state;
+    if (!isReady) {
       return null;
     }
-    console.log(cookiesString,"cookiesStringcookiesString")
     return (
       <SafeAreaView style={styles.container}>
         <WebView
           ref={this.myWebView}
           source={{
-            uri: "https://hisably.com/app/",
+            uri: 'https://hisably.com/app/',
             headers: {
               Cookie: cookiesString,
             },
@@ -99,7 +105,7 @@ export default class App extends Component {
     console.log(message);
   };
 
-  provideMeSavedCookies=async ()=> {
+  provideMeSavedCookies = async () => {
     try {
       let value = await AsyncStorage.getItem('savedCookies');
       if (value !== null) {
@@ -109,8 +115,7 @@ export default class App extends Component {
       console.log('=====  checkIfWeHavePocStoredInSqLite =====');
       console.log(error);
     }
-  }
-
+  };
 }
 
 const styles = StyleSheet.create({
